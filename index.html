@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ollie's Adventure 🐶💙</title>
+
+<style>
+body {
+  margin:0;
+  overflow:hidden;
+  font-family:Arial;
+  background:#87CEEB;
+}
+
+canvas {
+  display:block;
+  touch-action:manipulation;
+}
+
+#ui {
+  position:absolute;
+  top:10px;
+  width:100%;
+  text-align:center;
+  font-size:18px;
+  font-weight:bold;
+  color:white;
+  text-shadow:1px 1px 3px black;
+}
+
+#overlay {
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,0.85);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:white;
+  text-align:center;
+  padding:20px;
+  overflow-y:auto;
+}
+
+button {
+  padding:12px 18px;
+  margin:6px;
+  border:none;
+  border-radius:10px;
+  background:#4CAF50;
+  font-size:16px;
+  width:90%;
+  max-width:320px;
+}
+
+.donate { background:#ff9800; }
+.share { background:#2196F3; }
+
+img {
+  width:80%;
+  max-width:280px;
+  border-radius:12px;
+  margin:10px 0;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">Loading...</div>
+
+<div id="overlay">
+  <h1>🐶 Ollie's Adventure 💙</h1>
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+// ================= CANVAS =================
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ================= STATE =================
+let gameRunning = false;
+let levelIndex = 0;
+let bonesCollected = 0;
+
+const gravity = 0.4;
+const jumpPower = -11;
+
+const ollie = { x:120, y:200, vy:0 };
+let bones = [];
+
+const GAME_LINK = "https://olliesgame2-1.vercel.app/";
+
+// ================= LEVELS =================
+const levels = [
+  {name:"Vietnam City 🏙️", goal:5, speed:2.5},
+  {name:"Tropical Forest 🌴", goal:5, speed:2.6},
+  {name:"Road to Airport 🚕", goal:5, speed:2.7},
+  {name:"Airport ✈️", goal:7, speed:2.8},
+  {name:"Above Clouds ☁️", goal:7, speed:2.9},
+  {name:"Ocean Crossing 🌊", goal:7, speed:3.0},
+  {name:"South Africa 🇿🇦", goal:9, speed:3.1},
+  {name:"Safari 🦒🌿", goal:9, speed:3.2},
+  {name:"Karoo 🌵", goal:9, speed:3.3},
+  {name:"Home 🏠💙", goal:9, speed:3.4}
+];
+
+// ================= THEMES =================
+const themes = [
+  ["🏙️","🚕","🚦"],
+  ["🌴","🌿","🦎"],
+  ["🚕","🛣️","🚗"],
+  ["✈️","🧳","🛫"],
+  ["☁️","✈️","🌤️"],
+  ["🌊","🐬","🐟"],
+  ["🇿🇦","🌄","🦁"],
+  ["🦒","🌿","🐘"],
+  ["🌵","☀️","🐍"],
+  ["🏠","💙","🐶"]
+];
+
+// ================= UI =================
+function updateUI(){
+  const lvl = levels[levelIndex];
+  document.getElementById("ui").innerText =
+    `🦴 ${bonesCollected}/${lvl.goal} | ${lvl.name}`;
+}
+
+// ================= START =================
+function startGame(){
+  gameRunning = true;
+  bones = [];
+  bonesCollected = 0;
+
+  ollie.x = 120;
+  ollie.y = canvas.height / 2;
+  ollie.vy = 0;
+
+  document.getElementById("overlay").style.display = "none";
+  updateUI();
+}
+
+// ================= INPUT =================
+document.addEventListener("click", () => {
+  if(gameRunning) ollie.vy = jumpPower;
+});
+
+// ================= SPAWN (FIXED GAP ISSUE) =================
+setInterval(() => {
+  if(!gameRunning) return;
+
+  const lvl = levels[levelIndex];
+
+  bones.push({
+    x: canvas.width + 50,   // FIXED: no huge empty space
+    y: canvas.height - 160 - Math.random() * 180
+  });
+
+}, 900); // FIXED: faster spawn = no long gaps
+
+// ================= UPDATE =================
+function update(){
+  const lvl = levels[levelIndex];
+
+  ollie.vy += gravity;
+  ollie.y += ollie.vy;
+
+  if(ollie.y > canvas.height - 40){
+    failScreen();
+    return;
+  }
+
+  for(let i=bones.length-1;i>=0;i--){
+    let b = bones[i];
+    b.x -= lvl.speed;
+
+    if(Math.abs(b.x - ollie.x) < 25 && Math.abs(b.y - ollie.y) < 25){
+      bonesCollected++;
+      bones.splice(i,1);
+      updateUI();
+
+      if(bonesCollected >= lvl.goal){
+        levelComplete();
+        return;
+      }
+    }
+
+    if(b.x < -60) bones.splice(i,1);
+  }
+}
+
+// ================= DRAW =================
+function draw(){
+  ctx.fillStyle = "#87CEEB";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const theme = themes[levelIndex];
+
+  ctx.font = "28px Arial";
+  for(let i=0;i<canvas.width/40;i++){
+    ctx.fillText(theme[i % theme.length], i*40, canvas.height-20);
+  }
+
+  ctx.font = "40px Arial";
+  ctx.fillText("🐶", ollie.x, ollie.y);
+
+  ctx.font = "30px Arial";
+  for(let b of bones){
+    ctx.fillText("🦴", b.x, b.y);
+  }
+}
+
+// ================= LOOP =================
+function loop(){
+  if(gameRunning){
+    update();
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ================= FAIL =================
+function failScreen(){
+  gameRunning = false;
+
+  document.getElementById("overlay").style.display = "flex";
+  document.getElementById("overlay").innerHTML = `
+    <h1>🐶 Ollie fell!</h1>
+
+    <button onclick="startGame()">🔁 Restart</button>
+
+    <button class="donate"
+      onclick="window.open('https://www.backabuddy.co.za/campaign/love-loyalty-and-a-little-help','_blank')">
+      💙 Donate
+    </button>
+
+    <button onclick="continueGame()">▶ Continue</button>
+  `;
+}
+
+// ================= LEVEL COMPLETE =================
+function levelComplete(){
+  gameRunning = false;
+
+  document.getElementById("overlay").innerHTML = `
+    <h1>🎉 Level Complete 💙</h1>
+
+    <button class="donate"
+      onclick="window.open('https://www.backabuddy.co.za/campaign/love-loyalty-and-a-little-help','_blank')">
+      💙 Donate
+    </button>
+
+    <button onclick="nextLevel()">▶ Continue Game</button>
+  `;
+
+  document.getElementById("overlay").style.display = "flex";
+}
+
+// ================= NEXT LEVEL =================
+function nextLevel(){
+  levelIndex++;
+
+  if(levelIndex >= levels.length){
+    finalScreen();
+    return;
+  }
+
+  startGame();
+}
+
+// ================= FINAL SCREEN =================
+function finalScreen(){
+
+const wa = `https://wa.me/?text=${encodeURIComponent(
+`Help bring Ollie home 🐶💙
+Play his adventure: ${GAME_LINK}`
+)}`;
+
+document.getElementById("overlay").innerHTML = `
+  <h1>🏠 Ollie is Home! 💙🐶</h1>
+
+  <img src="https://i.imgur.com/oXR8uL4.jpeg"/>
+
+  <button class="donate"
+    onclick="window.open('https://www.backabuddy.co.za/campaign/love-loyalty-and-a-little-help','_blank')">
+    💙 Donate
+  </button>
+
+  <button class="share"
+    onclick="window.open('https://www.facebook.com/profile.php?id=61573985532611','_blank')">
+    📘 Socials
+  </button>
+
+  <button class="share"
+    onclick="window.open('${wa}','_blank')">
+    📲 Share WhatsApp
+  </button>
+
+  <button onclick="location.reload()">🔁 Play Again</button>
+`;
+
+document.getElementById("overlay").style.display = "flex";
+}
+
+// ================= CONTINUE =================
+function continueGame(){
+  startGame();
+}
+</script>
+
+</body>
+</html>
